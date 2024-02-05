@@ -22,6 +22,13 @@
 #include "paddle/phi/backends/xpu/xpu_info.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 
+
+#ifdef PADDLE_WITH_XPU_XHPC
+#include "xblas/cublasLt.h"
+#endif
+
+namespace xblas = baidu::xpu::xblas;
+
 namespace phi {
 
 using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;
@@ -453,7 +460,24 @@ void xpu_fc_batch_wrapper<XPUTypeBF16, tfloat32>(xpu::Context* xpu_ctx,
                                                  int stride_y,
                                                  const float* x_maxptr,
                                                  const float* w_maxptr) {
-  int r = xpu::Error_t::INVALID_PARAM;
+  int r = xblas::fc_batched<XPUTypeBF16, XPUTypeBF16, XPUTypeBF16, float, float, 0>(
+      xpu_ctx,                              // Context* ctx,
+      bs,                                   // int batch_size,
+      trans_x,                              // bool x_trans,
+      trans_w,                              // bool w_trans,
+      m,                                    // int m,
+      n,                                    // int n,
+      k,                                    // int k,
+      alpha,                                // float alpha,
+      reinterpret_cast<const XPUTypeBF16*>(x),  // const TX* x,
+      stride_x,                             // int stride_a,
+      reinterpret_cast<const XPUTypeBF16*>(w),  // const TW* w,
+      stride_w,                             // int stride_b,
+      0.0,                                  // float beta,
+      reinterpret_cast<XPUTypeBF16*>(y),        // TY* y,
+      stride_y,                             // int stride_c,
+      x_maxptr,                             // const float* x_maxptr,
+      w_maxptr);                            // const float* w_maxptr
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "xpu_fc_batch_wrapper");
 }
 
