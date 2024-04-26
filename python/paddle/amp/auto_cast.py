@@ -761,12 +761,6 @@ def amp_decorate(
             return models
         else:
             return models, optimizers
-    # For xpu:
-    if tracer._expected_place.is_xpu_place() and (dtype == 'bfloat16'):
-        if optimizers is None:
-            return models
-        else:
-            return models, optimizers
     # For custom device:
     if (
         tracer._expected_place.is_custom_place()
