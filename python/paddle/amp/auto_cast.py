@@ -497,10 +497,6 @@ def amp_guard(
             )
             enable = False
         if enable:
-            # For xpu:
-            if tracer._expected_place.is_xpu_place() and (dtype == 'bfloat16'):
-                warnings.warn('XPUPlace only support float16 amp.')
-                enable = False
             # For custom device:
             if (
                 tracer._expected_place.is_custom_place()
