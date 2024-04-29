@@ -442,4 +442,5 @@ PD_REGISTER_KERNEL(set_value_with_tensor,
                    phi::dtype::float16,
                    int,
                    int64_t,
-                   bool) {}
+                   bool,
+                   phi::dtype::bfloat16) {}
