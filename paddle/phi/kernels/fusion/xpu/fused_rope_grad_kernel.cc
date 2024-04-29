@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/common/amp_type_traits.h"
 #include "paddle/phi/core/kernel_registry.h"
-
 #include "paddle/phi/kernels/fusion/xpu/fused_rope_utils.h"
 
 namespace phi {
@@ -34,6 +34,7 @@ void FusedRopeGradKernel(const Context& dev_ctx,
                          DenseTensor* dk,
                          DenseTensor* dv) {
   using XPUType = typename XPUTypeTrait<T>::Type;
+  using XPUTypeMP = typename phi::dtype::MPTypeTrait<T>::Type;
   if (dout_q.numel() <= 0) {
     return;
   }
@@ -49,8 +50,8 @@ void FusedRopeGradKernel(const Context& dev_ctx,
 
   xpu::ctx_guard RAII_GUARD(dev_ctx.x_context());
   int64_t sin_cos_len = batch_size * seq_len * head_dim;
-  auto* sin_data = RAII_GUARD.alloc_l3_or_gm<XPUType>(sin_cos_len);
-  auto* cos_data = RAII_GUARD.alloc_l3_or_gm<XPUType>(sin_cos_len);
+  auto* sin_data = RAII_GUARD.alloc_l3_or_gm<XPUTypeMP>(sin_cos_len);
+  auto* cos_data = RAII_GUARD.alloc_l3_or_gm<XPUTypeMP>(sin_cos_len);
 
   if (sin.get_ptr() && cos.get_ptr()) {
     PADDLE_ENFORCE_EQ(sin.get_ptr()->dims(),
@@ -62,9 +63,9 @@ void FusedRopeGradKernel(const Context& dev_ctx,
                           cos.get_ptr()->dims()));
   }
 
-  XPUGetSinCosData<XPUType, Context>(
+  XPUGetSinCosData<XPUTypeMP, Context>(
       dev_ctx, sin, position_ids, sin_data, batch_size, seq_len, head_dim);
-  XPUGetSinCosData<XPUType, Context>(
+  XPUGetSinCosData<XPUTypeMP, Context>(
       dev_ctx, cos, position_ids, cos_data, batch_size, seq_len, head_dim);
 
   if (use_neox_rotary_style) {
@@ -73,10 +74,10 @@ void FusedRopeGradKernel(const Context& dev_ctx,
         phi::errors::Unimplemented("XPU do not support rotary_embedding_grad "
                                    "with use_neox_rotary_style set."));
   } else {
-    if (head_dim * sizeof(T) <= 1024 && head_dim % 64 == 0 && dout_k) {
+    // if (head_dim * sizeof(T) <= 1024 && head_dim % 64 == 0 && dout_k) {
       auto* dq_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dq));
       auto* dk_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dk));
-      int ret = xpu::rotary_no_freqs_qk_embedding_v2_grad<XPUType>(
+      int ret = xpu::rotary_embedding_bhld_grad<XPUType, XPUTypeMP>(
           dev_ctx.x_context(),
           reinterpret_cast<const XPUType*>(dout_q.data<T>()),
           reinterpret_cast<const XPUType*>(dout_k->data<T>()),
@@ -84,56 +85,56 @@ void FusedRopeGradKernel(const Context& dev_ctx,
           cos_data,
           dq_data,
           dk_data,
-          {batch_size, seq_len, num_heads, head_dim},
-          {batch_size, seq_len, 1, head_dim},
-          {seq_len * num_heads * head_dim, num_heads * head_dim, head_dim, 1},
-          {seq_len * head_dim, head_dim, head_dim, 1});
-      PADDLE_ENFORCE_XDNN_SUCCESS(ret, "rotary_no_freqs_qk_embedding_v2_grad");
-    } else {
-      auto* dq_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dq));
-      XPUFusedRotaryHalf<XPUType, Context>(
-          dev_ctx,
-          reinterpret_cast<const XPUType*>(dout_q.data<T>()),
-          sin_data,
-          cos_data,
-          dq_data,
           batch_size,
-          seq_len,
           num_heads,
-          head_dim,
-          true);
-
-      if (dout_k.get_ptr()) {
-        auto* dk_data =
-            reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dk));
-        XPUFusedRotaryHalf<XPUType, Context>(
-            dev_ctx,
-            reinterpret_cast<const XPUType*>(dout_k->data<T>()),
-            sin_data,
-            cos_data,
-            dk_data,
-            batch_size,
-            seq_len,
-            num_heads,
-            head_dim,
-            true);
-      }
-    }
-
-    if (dout_v.get_ptr()) {
-      auto* dv_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dv));
-      XPUFusedRotaryHalf<XPUType, Context>(
-          dev_ctx,
-          reinterpret_cast<const XPUType*>(dout_v->data<T>()),
-          sin_data,
-          cos_data,
-          dv_data,
-          batch_size,
           seq_len,
-          num_heads,
-          head_dim,
-          true);
-    }
+          head_dim);
+      PADDLE_ENFORCE_XDNN_SUCCESS(ret, "rotary_embedding_bhld_grad");
+    // } else {
+    //   auto* dq_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dq));
+    //   XPUFusedRotaryHalf<XPUType, Context>(
+    //       dev_ctx,
+    //       reinterpret_cast<const XPUType*>(dout_q.data<T>()),
+    //       sin_data,
+    //       cos_data,
+    //       dq_data,
+    //       batch_size,
+    //       seq_len,
+    //       num_heads,
+    //       head_dim,
+    //       true);
+
+    //   if (dout_k.get_ptr()) {
+    //     auto* dk_data =
+    //         reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dk));
+    //     XPUFusedRotaryHalf<XPUType, Context>(
+    //         dev_ctx,
+    //         reinterpret_cast<const XPUType*>(dout_k->data<T>()),
+    //         sin_data,
+    //         cos_data,
+    //         dk_data,
+    //         batch_size,
+    //         seq_len,
+    //         num_heads,
+    //         head_dim,
+    //         true);
+    //   }
+    // }
+
+    // if (dout_v.get_ptr()) {
+    //   auto* dv_data = reinterpret_cast<XPUType*>(dev_ctx.template Alloc<T>(dv));
+    //   XPUFusedRotaryHalf<XPUType, Context>(
+    //       dev_ctx,
+    //       reinterpret_cast<const XPUType*>(dout_v->data<T>()),
+    //       sin_data,
+    //       cos_data,
+    //       dv_data,
+    //       batch_size,
+    //       seq_len,
+    //       num_heads,
+    //       head_dim,
+    //       true);
+    // }
   }
 }
 }  // namespace fusion
