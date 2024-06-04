@@ -269,8 +269,8 @@ void FlashAttnKernel(const Context& ctx,
   const float* bias_data = nullptr;
   int64_t fa_layout = AttnQKVLayout_t::ATTN_BLHD;
   if (attn_mask.get_ptr() != nullptr) {
-    const auto& dims = attn_mask.dims();
-    if (dims.size() == 3 || (dims[1] == 1 && dims.size() == 4)) {
+    const auto& mask_dims = attn_mask->dims();
+    if (mask_dims.size() == 3 || (mask_dims[1] == 1 && mask_dims.size() == 4)) {
       fa_layout |= AttnQKVLayout_t::BIAS_BLL;
     } else {
       PADDLE_ENFORCE_EQ(
@@ -332,12 +332,7 @@ void FlashAttnKernel(const Context& ctx,
       nullptr,                                    // k_maxptr
       nullptr,                                    // v_maxptr
       nullptr,                                    // o_maxptr
-      nullptr,                                    // dq_maxptr
-      nullptr,                                    // dk_maxptr
-      nullptr,                                    // dv_maxptr
-      nullptr,                                    // do_maxptr
       false,                                      // is_qkv_fusion
-      false,                                      // is_dqkv_fusion
       fa_layout                                   // qkv_layout
   );
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "mha_varlen_fwd");

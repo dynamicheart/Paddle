@@ -70,7 +70,7 @@ void FlashAttnGradKernel(const Context& ctx,
   const float* bias_data = nullptr;
   int64_t fa_layout = AttnQKVLayout_t::ATTN_BLHD;
   if (attn_mask.get_ptr() != nullptr) {
-    const auto& mask_dims = attn_mask.dims();
+    const auto& mask_dims = attn_mask->dims();
     if (mask_dims.size() == 3 || (mask_dims[1] == 1 && mask_dims.size() == 4)) {
       fa_layout |= AttnQKVLayout_t::BIAS_BLL;
     } else {
