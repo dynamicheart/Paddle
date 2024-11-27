@@ -22,6 +22,7 @@ set(XPU_API_LIB_NAME "libxpuapi.so")
 set(XPU_RT_LIB_NAME "libxpurt.so")
 set(XPU_CUDA_LIB_NAME "libxpucuda.so")
 set(XPU_CUDA_RT_LIB_NAME "libcudart.so")
+set(XPU_ML_LIB_NAME "libxpuml.so")
 set(XPU_XFT_LIB_NAME "libxft.so")
 set(XPU_XPTI_LIB_NAME "libxpti.so")
 set(XPU_XBLAS_LIB_NAME "libxpu_blas.so")
@@ -146,6 +147,7 @@ set(XPU_XBLAS_LIB "${XPU_LIB_DIR}/${XPU_XBLAS_LIB_NAME}")
 set(XPU_RT_LIB "${XPU_LIB_DIR}/${XPU_RT_LIB_NAME}")
 set(XPU_CUDA_LIB "${XPU_LIB_DIR}/${XPU_CUDA_LIB_NAME}")
 set(XPU_CUDA_RT_LIB "${XPU_LIB_DIR}/${XPU_CUDA_RT_LIB_NAME}")
+set(XPU_ML_LIB "${XPU_LIB_DIR}/${XPU_ML_LIB_NAME}")
 set(XPU_XFA_LIB "${XPU_LIB_DIR}/${XPU_XFA_LIB_NAME}")
 set(XPU_XPUDNN_LIB "${XPU_LIB_DIR}/${XPU_XPUDNN_LIB_NAME}")
 
@@ -190,6 +192,7 @@ if(WITH_XPU_XRE5)
     BUILD_BYPRODUCTS ${XPU_XFA_LIB}
     BUILD_BYPRODUCTS ${XPU_RT_LIB}
     BUILD_BYPRODUCTS ${XPU_CUDA_RT_LIB}
+    BUILD_BYPRODUCTS ${XPU_ML_LIB}
     BUILD_BYPRODUCTS ${XPU_BKCL_LIB})
 else()
   ExternalProject_Add(

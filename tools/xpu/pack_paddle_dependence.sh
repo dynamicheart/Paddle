@@ -64,6 +64,7 @@ function xre_prepare() {
   check_files ${XRE_DIR_NAME}/include/xpu/runtime.h ${XRE_DIR_NAME}/so/libxpurt.so
   if [ "$WITH_XPU_XRE5" -eq 1 ]; then
     check_files ${XRE_DIR_NAME}/so/libcudart.so
+    check_files ${XRE_DIR_NAME}/so/libxpuml.so
   fi
   cp -r ${XRE_DIR_NAME}/include/xpu/* xpu/include/xpu/
   cp -r ${XRE_DIR_NAME}/so/* xpu/lib/
