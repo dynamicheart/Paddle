@@ -276,6 +276,7 @@ if(WITH_XPU_XRE5)
     ${XPU_RT_LIB}
     ${XPU_CUDA_RT_LIB}
     ${XPU_BKCL_LIB}
+    ${XPU_ML_LIB}
     ${XPU_XBLAS_LIB}
     ${XPU_API_LIB}
     ${XPU_XFA_LIB}
