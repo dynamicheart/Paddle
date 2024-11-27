@@ -224,12 +224,6 @@ set_property(TARGET shared_xpuapi PROPERTY IMPORTED_LOCATION "${XPU_API_LIB}")
 # for cc_library(xxx SRCS xxx.c DEPS xpulib)
 generate_dummy_static_lib(LIB_NAME "xpulib" GENERATOR "xpu.cmake")
 
-if(WITH_XPU_XRE5)
-  target_link_libraries(xpulib ${XPU_API_LIB} ${XPU_RT_LIB} ${XPU_CUDA_RT_LIB})
-else()
-  target_link_libraries(xpulib ${XPU_API_LIB} ${XPU_RT_LIB})
-endif()
-
 if(WITH_XPU_XFT)
   message(STATUS "Compile with XPU XFT!")
   add_definitions(-DPADDLE_WITH_XPU_XFT)
@@ -275,14 +269,20 @@ if(WITH_XPU_XRE5)
     xpulib
     ${XPU_RT_LIB}
     ${XPU_CUDA_RT_LIB}
-    ${XPU_BKCL_LIB}
-    ${XPU_ML_LIB}
     ${XPU_XBLAS_LIB}
     ${XPU_API_LIB}
     ${XPU_XFA_LIB}
     ${XPU_XPUDNN_LIB})
 else()
-  target_link_libraries(xpulib ${XPU_RT_LIB} ${XPU_BKCL_LIB} ${XPU_API_LIB})
+  target_link_libraries(xpulib ${XPU_RT_LIB} ${XPU_API_LIB})
+endif()
+
+if(WITH_XPU_BKCL)
+  if(WITH_XPU_XRE5)
+    target_link_libraries(xpulib ${XPU_ML_LIB} ${XPU_BKCL_LIB})
+  else()
+    target_link_libraries(xpulib ${XPU_BKCL_LIB})
+  endif()
 endif()
 
 add_dependencies(xpulib ${XPU_PROJECT})

@@ -95,6 +95,8 @@ function xccl_prepare() {
   check_files ${XCCL_DIR_NAME}/include/bkcl.h ${XCCL_DIR_NAME}/so/libbkcl.so
   cp -r ${XCCL_DIR_NAME}/include/* xpu/include/xpu/
   cp -r ${XCCL_DIR_NAME}/so/* xpu/lib/
+  # FIXME(yangjianbang): 待bkcl增加RPATH后, 删除以下代码
+  patchelf --set-rpath '$ORIGIN/' xpu/lib/libbkcl.so
 }
 
 function local_prepare() {
