@@ -78,7 +78,7 @@ PD_REGISTER_KERNEL(sum_grad,
                    phi::dtype::float16,
                    phi::dtype::bfloat16,
                    int64_t,
-                   int32_t,
+                   int,
                    bool) {
   kernel->OutputAt(0).SetDataType(phi::DataType::UNDEFINED);
 }
