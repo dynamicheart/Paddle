@@ -15,6 +15,7 @@
 
 import os
 import unittest
+from contextlib import contextmanager
 
 import numpy as np
 from get_test_cover_info import (
@@ -30,6 +31,15 @@ import paddle
 import paddle.nn.functional as F
 
 paddle.enable_static()
+
+
+@contextmanager
+def dynamic_guard():
+    paddle.disable_static()
+    try:
+        yield
+    finally:
+        paddle.enable_static()
 
 
 class TestActivationOPBase(XPUOpTest):
@@ -97,6 +107,8 @@ class XPUTestRoundOP(XPUOpTestWrapper):
 
     class XPUTestRound(TestActivationOPBase):
         def set_case(self):
+            self.op_type = 'round'
+
             self.init_dtype()
             self.set_shape()
             self.set_decimals()
@@ -135,13 +147,17 @@ class XPUTestRoundOP(XPUOpTestWrapper):
             self.decimals = 2
 
         def test_round_api(self):
-            x_np = np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100
-            out_expect = np.round(x_np, decimals=self.decimals)
-            x_paddle = paddle.to_tensor(
-                x_np, dtype=self.dtype, place=self.place
-            )
-            y = paddle.round(x_paddle, decimals=self.decimals)
-            np.testing.assert_allclose(y.numpy(), out_expect, rtol=1e-3)
+            with dynamic_guard():
+                x_np = (
+                    np.random.uniform(-1, 1, self.shape).astype(self.dtype)
+                    * 100
+                )
+                out_expect = np.round(x_np, decimals=self.decimals)
+                x_paddle = paddle.to_tensor(
+                    x_np, dtype=self.dtype, place=self.place
+                )
+                y = paddle.round(x_paddle, decimals=self.decimals)
+                np.testing.assert_allclose(y.numpy(), out_expect, rtol=1e-3)
 
     class TestRound_decimals2(XPUTestRound_decimals1):
         def init_decimals(self):
