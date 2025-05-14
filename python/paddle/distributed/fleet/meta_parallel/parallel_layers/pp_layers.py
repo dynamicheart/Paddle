@@ -175,6 +175,7 @@ class SegmentLayers:
                 )
 
         elif self.method == "uniform":
+            # 最后输出的格式大概为： [0, 5, 7, num_items]
             return self.uniform(self.num_items, self.num_parts)
 
         elif self.method.startswith('layer:'):
@@ -785,6 +786,8 @@ class PipelineLayer(nn.Layer):
             # Layers [2, 3], [6, 7] will be assigned to the second real pp stage.
             # Layers [0, 1] and [2, 3] are the first virtual pp stage in each real pp stage.
             # Layers [4, 5] and [6, 7] are the second virtual pp stage in each real pp stage.
+            # 每一段segment的起始位置和结束位置, 如果是非interleave模式, 那么一般_start_poss和end_poss都只有一个元素
+            # 在上例中, pp_rank0的_start_poss和_end_poss分别是[0, 4], [1, 5]
             assert self.segment_parts[i] <= self.segment_parts[i + 1]
             self._start_poss.append(self.segment_parts[i])
             self._end_poss.append(self.segment_parts[i + 1])

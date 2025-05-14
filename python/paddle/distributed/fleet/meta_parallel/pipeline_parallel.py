@@ -736,6 +736,13 @@ class PipelineParallel(MetaParallelBase):
         # store data id for micro_batch
         self.micro_batch_id = 0
 
+        # 以下均以pp=4, accumulate_steps=8为例
+
+        #        startup_steps   steady_steps
+        # pp0:         3              5
+        # pp1:         2              6
+        # pp2:         1              7
+        # pp3:         0              7
         startup_steps = self.num_stages - self.stage_id - 1
         startup_steps = min(startup_steps, self.accumulate_steps)
         steady_steps = self.accumulate_steps - startup_steps
@@ -1474,6 +1481,15 @@ class PipelineParallelWithInterleave(PipelineParallel):
         assert layers.get_num_virtual_stages() > 1
 
         # setup for interleave scheduler
+        # 下面以pp=4, vpp=2, acc_steps=8为例
+
+        # num_model_chunks = 2
+        # model_chunks = [PipelineLayerChunk1, PipelineLayerChunk2]
+        # _virtual_pp_world_size = 2
+        # _virtual_pp_rank = 0
+        # _forward_micro_step_counter = {0: 0, 1: 0}
+        # _backward_micro_step_counter = {0: 0, 1: 0}
+
         self._check_sanity()
         self.num_model_chunks = layers.get_num_virtual_stages()
         self.model_chunks = layers.get_model_chunks()
@@ -2004,6 +2020,13 @@ class PipelineParallelWithInterleave(PipelineParallel):
         self._forward_only = forward_only
         self.user_hooks_enabled = not self._forward_only
 
+        # 同样以pp=4, vpp=2, acc_steps=8为例
+        # self.accumulate_steps % self.num_stages 是用于处理unbalanced pipeline的情况, 即accumulate_steps不能被num_stages整除的情况
+        # - first_chunk_acc: 第一个 chunk 在 startup 阶段需要处理的 micro steps 数量, 本例中为4
+        # - first_chunk_steps： startup截断需要处理的总的micro steps的数量, 本例中为8
+        # - skip_steps:
+        # - left_id:
+        # - right_id:
         first_chunk_acc = (
             self.accumulate_steps % self.num_stages + self.num_stages
         )
@@ -2094,8 +2117,12 @@ class PipelineParallelWithInterleave(PipelineParallel):
             # first_forward_cross_to_end = (self.num_stages - self.stage_id - 1) + (self.num_model_chunks - 1) * self.num_stages
             # end_to_first_backward_cross = (self.num_stages - self.stage_id - 1)
             # startup_steps = first_forward_cross_to_end + end_to_first_backward_cross
-            startup_steps = (self.num_stages - self.stage_id - 1) * 2
-            startup_steps += (self.num_model_chunks - 1) * first_chunk_acc
+            startup_steps = (
+                self.num_stages - self.stage_id - 1
+            ) * 2  # startup_steps=6
+            startup_steps += (
+                self.num_model_chunks - 1
+            ) * first_chunk_acc  # startup_steps=8
             startup_steps = min(startup_steps, num_steps)
 
         # An additional micro step is needed for overplapping schedule
