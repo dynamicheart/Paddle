@@ -758,21 +758,39 @@ class PipelineParallel(MetaParallelBase):
                 schedule += f"f{step_id};"
                 logger.info(f"forward step for micro step {step_id}")
                 continue
+            # https://chromium.googlesource.com/external/trace-viewer/+/bf55211014397cf0ebcd9e7090de1c4f84fc3ac0/tracing/tracing/ui/base/color_scheme.html
+            if not self.is_pipeline_first_stage():
+                self._record_stamp(
+                    "recv_forward", step_id, '"B"', "cq_build_abandoned"
+                )
             input_tensor = self._p2p_helper.recv_forward(
                 self.is_pipeline_first_stage(),
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
+            if not self.is_pipeline_first_stage():
+                self._record_stamp(
+                    "recv_forward", step_id, '"E"', "cq_build_abandoned"
+                )
 
             self._record_stamp("F", step_id, '"B"', self._forward_color)
             output_tensor, _, _ = self._forward_step(
                 input_tensor, micro_dataset, step_id=step_id
             )
             self._record_stamp("F", step_id, '"E"', self._forward_color)
+
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "send_forward", step_id, '"B"', "cq_build_abandoned"
+                )
             self._p2p_helper.send_forward(
                 output_tensor,
                 self.is_pipeline_last_stage(),
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "send_forward", step_id, '"E"', "cq_build_abandoned"
+                )
 
             input_buffers.append(input_tensor)
             output_buffers.append(output_tensor)
@@ -805,12 +823,25 @@ class PipelineParallel(MetaParallelBase):
                 "F", startup_steps + i, '"E"', self._forward_color
             )
 
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "send_forward_recv_backward",
+                    startup_steps + i,
+                    '"B"',
+                    "cq_build_abandoned",
+                )
             output_tensor_grad = self._p2p_helper.send_forward_recv_backward(
                 output_tensor,
                 self.is_pipeline_last_stage(),
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
-
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "send_forward_recv_backward",
+                    startup_steps + i,
+                    '"E"',
+                    "startup",
+                )
             input_buffers.append(input_tensor)
             output_buffers.append(output_tensor)
 
@@ -829,17 +860,45 @@ class PipelineParallel(MetaParallelBase):
 
             if last_iter:
                 input_tensor = None
+                if not self.is_pipeline_first_stage():
+                    self._record_stamp(
+                        "send_backward",
+                        startup_steps + i,
+                        '"B"',
+                        "cq_build_abandoned",
+                    )
                 self._p2p_helper.send_backward(
                     input_tensor_grad,
                     self.is_pipeline_first_stage(),
                     batch_p2p_comm=self._use_batch_p2p_comm,
                 )
+                if not self.is_pipeline_first_stage():
+                    self._record_stamp(
+                        "send_backward",
+                        startup_steps + i,
+                        '"E"',
+                        "cq_build_abandoned",
+                    )
             else:
+                if not self.is_pipeline_first_stage():
+                    self._record_stamp(
+                        "send_backward_recv_forward",
+                        startup_steps + i,
+                        '"B"',
+                        "startup",
+                    )
                 input_tensor = self._p2p_helper.send_backward_recv_forward(
                     input_tensor_grad,
                     self.is_pipeline_first_stage(),
                     batch_p2p_comm=self._use_batch_p2p_comm,
                 )
+                if not self.is_pipeline_first_stage():
+                    self._record_stamp(
+                        "send_backward_recv_forward",
+                        startup_steps + i,
+                        '"E"',
+                        "startup",
+                    )
 
         for i in range(startup_steps):
             if static_scheduler:
@@ -849,10 +908,18 @@ class PipelineParallel(MetaParallelBase):
             input_tensor = input_buffers.pop(0)
             output_tensor = output_buffers.pop(0)
 
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "recv_backward", step_id, '"B"', "cq_build_abandoned"
+                )
             output_tensor_grad = self._p2p_helper.recv_backward(
                 self.is_pipeline_last_stage(),
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
+            if not self.is_pipeline_last_stage():
+                self._record_stamp(
+                    "recv_backward", step_id, '"E"', "cq_build_abandoned"
+                )
 
             self._record_stamp(
                 "B", steady_steps + i, '"B"', self._backward_color
@@ -866,11 +933,20 @@ class PipelineParallel(MetaParallelBase):
             self._record_stamp(
                 "B", steady_steps + i, '"E"', self._backward_color
             )
+
+            if not self.is_pipeline_first_stage():
+                self._record_stamp(
+                    "send_backward", step_id, '"B"', "cq_build_abandoned"
+                )
             self._p2p_helper.send_backward(
                 input_tensor_grad,
                 self.is_pipeline_first_stage(),
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
+            if not self.is_pipeline_first_stage():
+                self._record_stamp(
+                    "send_backward", step_id, '"E"', "cq_build_abandoned"
+                )
 
         if static_scheduler:
             return schedule
